@@ -1,0 +1,105 @@
+CREATE DATABASE IF NOT EXISTS ganttmanager CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE ganttmanager;
+
+CREATE TABLE IF NOT EXISTS users (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  email VARCHAR(255) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL,
+  screen_name VARCHAR(100) NOT NULL,
+  avatar_path VARCHAR(500) DEFAULT NULL,
+  role ENUM('student','teacher','admin') DEFAULT 'student',
+  is_verified TINYINT(1) DEFAULT 0,
+  verify_token VARCHAR(64) DEFAULT NULL,
+  verify_token_exp DATETIME DEFAULT NULL,
+  reset_token VARCHAR(64) DEFAULT NULL,
+  reset_token_exp DATETIME DEFAULT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS projects (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  owner_id INT UNSIGNED NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  description TEXT DEFAULT NULL,
+  status ENUM('planning','active','on_hold','completed') DEFAULT 'planning',
+  priority ENUM('low','medium','high','critical') DEFAULT 'medium',
+  start_date DATE NOT NULL,
+  end_date DATE NOT NULL,
+  colour VARCHAR(7) DEFAULT '#2563EB',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS project_members (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  project_id INT UNSIGNED NOT NULL,
+  user_id INT UNSIGNED NOT NULL,
+  role ENUM('owner','member') DEFAULT 'member',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_project_member (project_id, user_id),
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS tasks (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  project_id INT UNSIGNED NOT NULL,
+  parent_task_id INT UNSIGNED DEFAULT NULL,
+  wbs_code VARCHAR(50) DEFAULT NULL,
+  title VARCHAR(255) NOT NULL,
+  description TEXT DEFAULT NULL,
+  start_date DATE NOT NULL,
+  end_date DATE NOT NULL,
+  progress INT DEFAULT 0,
+  status ENUM('planning','in_progress','blocked','completed') DEFAULT 'planning',
+  wbs_order INT DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  FOREIGN KEY (parent_task_id) REFERENCES tasks(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS dependencies (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  project_id INT UNSIGNED NOT NULL,
+  predecessor_id INT UNSIGNED NOT NULL,
+  successor_id INT UNSIGNED NOT NULL,
+  type ENUM('FS','SS','FF','SF') DEFAULT 'FS',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  FOREIGN KEY (predecessor_id) REFERENCES tasks(id) ON DELETE CASCADE,
+  FOREIGN KEY (successor_id) REFERENCES tasks(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS resources (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  project_id INT UNSIGNED NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  role VARCHAR(100) DEFAULT NULL,
+  cost_rate VARCHAR(50) DEFAULT NULL,
+  notes TEXT DEFAULT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS task_resources (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  task_id INT UNSIGNED NOT NULL,
+  resource_id INT UNSIGNED NOT NULL,
+  allocation INT DEFAULT 100,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+  FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS milestones (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  project_id INT UNSIGNED NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  target_date DATE NOT NULL,
+  status ENUM('planned','achieved','missed') DEFAULT 'planned',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+) ENGINE=InnoDB;

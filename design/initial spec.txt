@@ -1,0 +1,13 @@
+I would like to create a Gantt Chart/Project Planning App built in React+Vite+JavaScript at the front end and PHP at the backend. A MySQL database can be used as the backend datasource. In the initial development phase, I will use Laragon to serve the php script files from /api and the MySQL will be on localhost. Connection data will be served from a .config.json file in the backend. A setup.php script is in the knowledge repository which will be included at the head of every script to load connection details, receive data from POST or GET and return data in a certain json structure which will be parsed by the front end in a consistent manner. The backend should include phpmailer to send out smtp messages. SMTP server details will also be detailed in the .config.json
+
+The front end should conform to the structure as created by npm create which I have already scaffolded at C:\Users\spr\Desktop\ganttmanager. The appearance should be highly professional.
+
+There should be a login and registration system based upon email and password. This should be verified by an email verification.
+
+Individual users should be able to change their own password, set an avatar (10Mb max: gif, jpg, png format only) and modify their screen name.
+
+In the project planning process users need to be able to specify tasks, dependencies, resources, start and end dates, mark milestones and record percentage completion. Output of reports should be in pdf format, defaulting to landscape or printing/sharing. If there are any other key project management tasks I have omitted then please also include those.
+
+The aim is for my students to get used to using a piece of project management software that introduces them to the concepts of work breakdown and then tracking a plan on a Gannt Chart. As dates and milestones change, so dependencies and other dates, timelines and deadlines should also change in realtime response to them manipulating the timeline.
+
+Please analyse this specification and clarify any other information required. From that please produce a complete specification that a coding agent (Claude running in GitHub CoPilot) can follow. This includes specifications about the data structure, backend code, front end code, css files (no inline css, everything in App.css).

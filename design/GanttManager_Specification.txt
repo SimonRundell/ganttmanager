@@ -1,0 +1,1585 @@
+================================================================================
+  GANTTMANAGER — COMPLETE TECHNICAL SPECIFICATION
+  For use with an AI Coding Agent (GitHub Copilot / Claude)
+================================================================================
+
+  Author        : Simon Rundell, CodeMonkey Design Ltd.
+  Version       : 1.0
+  Date          : March 2026
+  Frontend      : React 18 + Vite + JavaScript
+  Backend       : PHP 8.x + MySQL + PHPMailer
+  Dev Server    : Laragon (localhost)
+  Target Users  : BTec Level 3 Extended Diploma in IT students;
+                  T-Level Digital Software Development students
+  Purpose       : Teach Work Breakdown Structure & Gantt Chart concepts
+  License       : Creative Commons Attribution-NonCommercial-ShareAlike 4.0
+                  (CC BY-NC-SA 4.0)
+  Repository    : github.com/simonrundell/ganttmanager (public)
+
+
+================================================================================
+  CONTENTS
+================================================================================
+
+  1.  Executive Summary
+  2.  Technology Stack
+  3.  Directory & File Structure
+  4.  Configuration File (.config.json)
+  5.  Database Schema
+  6.  Backend API Specification
+  7.  Authentication & User Management
+  8.  Project Management Features
+  9.  Gantt Chart Component Specification
+  10. Frontend Pages & Routing
+  11. State Management
+  12. PDF Report Specification
+  13. Email Notifications (PHPMailer)
+  14. CSS Architecture (App.css)
+  15. Vite Configuration
+  16. Security Checklist
+  17. Recommended Implementation Order
+  18. Notes for the Coding Agent
+
+
+================================================================================
+  1. EXECUTIVE SUMMARY
+================================================================================
+
+GanttManager is a web-based project management application designed to
+introduce BTec Level 3 Extended Diploma in IT and T-Level Digital Software
+Development students to the concepts of Work Breakdown Structure (WBS) and
+Gantt Chart tracking. Students create projects, define tasks with
+dependencies, assign resources, set milestones, and track progress — observing
+in real time how changes to one date cascade through dependent tasks and the
+overall timeline.
+
+The system is built on a React + Vite frontend communicating with a PHP/MySQL
+REST API backend served by Laragon in development. All authentication is
+JWT-based with email verification. Reports are exported as landscape PDFs. The
+project is published on GitHub under the Creative Commons
+Attribution-NonCommercial-ShareAlike 4.0 licence (CC BY-NC-SA 4.0).
+
+
+1.1 Scope Boundaries
+--------------------------------------------------------------------------------
+
+  * In scope: Full project CRUD, Gantt chart visualisation, dependency management, critical path highlighting, resource allocation, milestone tracking, PDF reports, user authentication, email notifications, teacher/admin oversight dashboard.
+  * Out of scope (v1): Real-time collaborative editing (WebSockets), billing, SSO, mobile native apps.
+  * Assumed: Students already understand basic project concepts; the app teaches the tooling.
+
+
+================================================================================
+  2. TECHNOLOGY STACK
+================================================================================
+
+
+2.1 Frontend
+--------------------------------------------------------------------------------
+
++------------------------------+------------------------------------------------+
+| Package                      | Purpose                                        |
++==============================+================================================+
+| React 18                     | Component-based UI                             |
++------------------------------+------------------------------------------------+
+| Vite 5                       | Build tool / dev server (default port 5173)    |
++------------------------------+------------------------------------------------+
+| React Router v6              | Client-side routing                            |
++------------------------------+------------------------------------------------+
+| Zustand                      | Lightweight global state management            |
++------------------------------+------------------------------------------------+
+| React Query (TanStack)       | Server state, caching, background refetch      |
++------------------------------+------------------------------------------------+
+| date-fns                     | Date arithmetic for dependency cascading       |
++------------------------------+------------------------------------------------+
+| jspdf + html2canvas          | Client-side PDF generation                     |
++------------------------------+------------------------------------------------+
+| react-dnd                    | Drag-and-drop Gantt bar manipulation           |
++------------------------------+------------------------------------------------+
+| react-hot-toast              | Toast notification system                      |
++------------------------------+------------------------------------------------+
+| react-hook-form              | Form management and validation                 |
++------------------------------+------------------------------------------------+
+| zod                          | Schema validation (mirroring backend rules)    |
++------------------------------+------------------------------------------------+
+
+
+2.2 Backend
+--------------------------------------------------------------------------------
+
++--------------------+----------------------------------------------------------+
+| Package            | Purpose                                                  |
++====================+==========================================================+
+| PHP 8.2+           | API scripts (one file per endpoint)                      |
++--------------------+----------------------------------------------------------+
+| MySQL 8.0+         | Relational datastore                                     |
++--------------------+----------------------------------------------------------+
+| PHPMailer 6.x      | SMTP email dispatch                                      |
++--------------------+----------------------------------------------------------+
+| Laragon            | Local dev server (Apache + PHP + MySQL bundle)           |
++--------------------+----------------------------------------------------------+
+| JWT (HS256)        | Stateless auth tokens (see setup.php)                    |
++--------------------+----------------------------------------------------------+
+
+
+2.3 Dev Environment Assumptions
+--------------------------------------------------------------------------------
+
+  * Laragon root   : C:\laragon\www\ganttmanager\api
+  * Vite dev server: http://localhost:5173
+  * API base (dev) : http://localhost/ganttmanager/api
+  * Vite proxy rewrites /api/* to http://localhost/ganttmanager/api/* (avoids CORS in dev)
+  * .config.json is in .gitignore and must NEVER be committed to the repository
+
+
+================================================================================
+  3. DIRECTORY & FILE STRUCTURE
+================================================================================
+
+
+3.1 Frontend  (C:\Users\spr\Desktop\ganttmanager)
+--------------------------------------------------------------------------------
+
+  ```
+  ganttmanager/
+  ├── index.html
+  ├── vite.config.js              <- proxy /api to localhost Laragon
+  ├── package.json
+  ├── .env                        <- VITE_API_BASE=/api
+  └── src/
+      ├── main.jsx                <- ReactDOM.createRoot
+      ├── App.jsx                 <- Router + QueryClient + Auth guard
+      ├── App.css                 <- ALL styling (no inline CSS anywhere)
+      ├── api/
+      │   ├── client.js           <- Base fetch with JWT header injection
+      │   ├── auth.js
+      │   ├── projects.js
+      │   ├── tasks.js
+      │   ├── resources.js
+      │   └── reports.js
+      ├── store/
+      │   ├── authStore.js
+      │   └── projectStore.js
+      ├── hooks/
+      │   ├── useGantt.js
+      │   ├── useDependencies.js
+      │   └── useCriticalPath.js
+      ├── pages/
+      │   ├── LoginPage.jsx
+      │   ├── RegisterPage.jsx
+      │   ├── VerifyEmailPage.jsx
+      │   ├── ForgotPasswordPage.jsx
+      │   ├── ResetPasswordPage.jsx
+      │   ├── DashboardPage.jsx
+      │   ├── TeacherDashboardPage.jsx
+      │   ├── ProjectPage.jsx
+      │   ├── GanttPage.jsx
+      │   ├── ReportsPage.jsx
+      │   └── ProfilePage.jsx
+      ├── components/
+      │   ├── layout/
+      │   │   ├── AppShell.jsx    <- Sidebar + topbar wrapper
+      │   │   ├── Sidebar.jsx
+      │   │   ├── Topbar.jsx
+      │   │   └── ProtectedRoute.jsx
+      │   ├── gantt/
+      │   │   ├── GanttChart.jsx  <- Main Gantt canvas orchestrator
+      │   │   ├── GanttHeader.jsx <- Date/month ruler
+      │   │   ├── GanttRow.jsx    <- Single task row
+      │   │   ├── GanttBar.jsx    <- Draggable/resizable bar
+      │   │   ├── GanttMilestone.jsx
+      │   │   ├── GanttDependencyLines.jsx  <- SVG arrows
+      │   │   └── GanttTooltip.jsx
+      │   ├── tasks/
+      │   │   ├── TaskPanel.jsx   <- Right-hand task detail drawer
+      │   │   ├── TaskForm.jsx
+      │   │   └── TaskList.jsx
+      │   ├── project/
+      │   │   ├── ProjectCard.jsx
+      │   │   ├── ProjectForm.jsx
+      │   │   └── MemberManager.jsx
+      │   └── ui/
+      │       ├── Modal.jsx
+      │       ├── Button.jsx
+      │       ├── Input.jsx
+      │       ├── Select.jsx
+      │       ├── Avatar.jsx
+      │       ├── Badge.jsx
+      │       ├── ProgressBar.jsx
+      │       ├── DatePicker.jsx
+      │       └── LoadingSpinner.jsx
+      └── utils/
+          ├── dateUtils.js        <- date-fns wrappers
+          ├── ganttUtils.js       <- Column width, row height calcs
+          ├── dependencyUtils.js  <- Cascade engine
+          └── pdfUtils.js         <- jsPDF helpers
+  ```
+
+
+3.2 Backend  (C:\laragon\www\ganttmanager\api)
+--------------------------------------------------------------------------------
+
+  ```
+  api/
+  ├── .config.json                <- Secret config (NOT in Git)
+  ├── setup.php                   <- Shared bootstrap (DB, auth, helpers)
+  ├── mailer.php                  <- Shared PHPMailer factory
+  ├── auth/
+  │   ├── authToken.php           <- POST login -> JWT
+  │   ├── register.php            <- POST register -> verification email
+  │   ├── verifyEmail.php         <- GET verify token
+  │   ├── forgotPassword.php      <- POST send reset email
+  │   ├── resetPassword.php       <- POST reset with token
+  │   └── refreshToken.php        <- POST refresh JWT
+  ├── users/
+  │   ├── getProfile.php          <- GET own profile
+  │   ├── updateProfile.php       <- POST update screen name
+  │   ├── changePassword.php      <- POST change password
+  │   └── uploadAvatar.php        <- POST multipart avatar upload
+  ├── projects/
+  │   ├── getProjects.php         <- GET projects (all for teacher/admin, own for student)
+  │   ├── getAllStudents.php       <- GET all students with stats (teacher/admin only)
+  │   ├── getProject.php          <- GET single project
+  │   ├── createProject.php       <- POST create project
+  │   ├── updateProject.php       <- POST update project
+  │   ├── deleteProject.php       <- POST delete project
+  │   ├── getMembers.php          <- GET project members
+  │   ├── addMember.php           <- POST invite member by email
+  │   └── removeMember.php        <- POST remove member
+  ├── tasks/
+  │   ├── getTasks.php            <- GET tasks for project
+  │   ├── createTask.php          <- POST create task
+  │   ├── updateTask.php          <- POST update task
+  │   ├── deleteTask.php          <- POST delete task
+  │   ├── reorderTasks.php        <- POST update WBS order
+  │   └── updateProgress.php      <- POST update % complete
+  ├── dependencies/
+  │   ├── getDependencies.php     <- GET all for project
+  │   ├── createDependency.php    <- POST create link
+  │   └── deleteDependency.php    <- POST delete link
+  ├── resources/
+  │   ├── getResources.php        <- GET project resources
+  │   ├── createResource.php      <- POST add resource
+  │   ├── updateResource.php      <- POST update resource
+  │   ├── deleteResource.php      <- POST delete resource
+  │   ├── assignResource.php      <- POST assign resource to task
+  │   └── removeAssignment.php    <- POST remove assignment
+  ├── milestones/
+  │   ├── getMilestones.php
+  │   ├── createMilestone.php
+  │   ├── updateMilestone.php
+  │   └── deleteMilestone.php
+  ├── reports/
+  │   ├── getProjectSummary.php   <- GET JSON for PDF cover
+  │   ├── getTaskReport.php       <- GET full task list with stats
+  │   └── getResourceReport.php   <- GET resource utilisation data
+  └── uploads/
+      └── avatars/                <- User avatar files
+  ```
+
+
+================================================================================
+  4. CONFIGURATION FILE  (.config.json)
+================================================================================
+
+This file MUST exist in the api/ directory and MUST be excluded from version
+control via .gitignore. It is read by setup.php on every request.
+
+  ```
+  {
+    "servername": "localhost",
+    "username":   "root",
+    "password":   "your_db_password",
+    "dbname":     "ganttmanager",
+    "api":        "http://localhost/ganttmanager/api",
+  
+    "jwtSecret":      "CHANGE_THIS_TO_A_LONG_RANDOM_SECRET_MIN_64_CHARS",
+    "jwtIssuer":      "ganttmanager",
+    "jwtAudience":    "ganttmanager-api",
+    "jwtTtlMinutes":  480,
+  
+    "smtpHost":       "smtp.example.com",
+    "smtpPort":       587,
+    "smtpSecure":     "tls",
+    "smtpUser":       "noreply@example.com",
+    "smtpPassword":   "your_smtp_password",
+    "smtpFromName":   "GanttManager",
+    "smtpFromEmail":  "noreply@example.com",
+  
+    "appUrl":         "http://localhost:5173",
+    "avatarMaxBytes": 10485760,
+  
+    "apiAuthUsers": [
+      {
+        "username":     "admin",
+        "passwordHash": "$2y$12$...",
+        "role":         "admin"
+      }
+    ]
+  }
+  ```
+
+
+================================================================================
+  5. DATABASE SCHEMA
+================================================================================
+
+All tables use InnoDB with UTF8MB4 charset. Timestamps default to
+CURRENT_TIMESTAMP. Foreign keys use ON DELETE CASCADE unless noted.
+
+
+5.1 Entity Relationship Overview
+--------------------------------------------------------------------------------
+
+  * One User can own many Projects.
+  * Projects have many Members (users) via project_members.
+  * Each Project has many Tasks, Milestones, Resources and Dependencies.
+  * Tasks have a self-referential parent_task_id for WBS hierarchy (summary tasks).
+  * Dependencies link a predecessor task to a successor task with a type.
+  * Resources are allocated to Tasks via task_resources (with allocation percentage).
+
+
+5.2 Table Definitions
+--------------------------------------------------------------------------------
+
+
+[ Table: users ]
+
++------------------------+------------------------+--------------------------+--------------------------------+
+| Column                 | Type                   | Constraints              | Description                    |
++========================+========================+==========================+================================+
+| id                     | INT UNSIGNED           | PK, AUTO_INCREMENT       | Unique user identifier         |
++------------------------+------------------------+--------------------------+--------------------------------+
+| email                  | VARCHAR(255)           | UNIQUE NOT NULL          | Login email address            |
++------------------------+------------------------+--------------------------+--------------------------------+
+| password_hash          | VARCHAR(255)           | NOT NULL                 | bcrypt hash (cost 12)          |
++------------------------+------------------------+--------------------------+--------------------------------+
+| screen_name            | VARCHAR(100)           | NOT NULL                 | Display name on UI             |
++------------------------+------------------------+--------------------------+--------------------------------+
+| avatar_path            | VARCHAR(500)           | NULL                     | Relative path to avatar file   |
++------------------------+------------------------+--------------------------+--------------------------------+
+| role                   | ENUM(student,teacher,a | DEFAULT student          | teacher/admin see all projects |
++------------------------+------------------------+--------------------------+--------------------------------+
+| is_verified            | TINYINT(1)             | DEFAULT 0                | 1 = email confirmed            |
++------------------------+------------------------+--------------------------+--------------------------------+
+| verify_token           | VARCHAR(64)            | NULL                     | Email verification token       |
++------------------------+------------------------+--------------------------+--------------------------------+
+| verify_token_exp       | DATETIME               | NULL                     | Token expiry                   |
++------------------------+------------------------+--------------------------+--------------------------------+
+| reset_token            | VARCHAR(64)            | NULL                     | Password reset token           |
++------------------------+------------------------+--------------------------+--------------------------------+
+| reset_token_exp        | DATETIME               | NULL                     | Reset token expiry             |
++------------------------+------------------------+--------------------------+--------------------------------+
+| created_at             | DATETIME               | DEFAULT NOW()            | Account creation               |
++------------------------+------------------------+--------------------------+--------------------------------+
+| updated_at             | DATETIME               | ON UPDATE NOW()          | Last update                    |
++------------------------+------------------------+--------------------------+--------------------------------+
+
+
+[ Table: projects ]
+
++------------------------+------------------------+--------------------------+--------------------------------+
+| Column                 | Type                   | Constraints              | Description                    |
++========================+========================+==========================+================================+
+| id                     | INT UNSIGNED           | PK, AUTO_INCREMENT       | Unique project ID              |
++------------------------+------------------------+--------------------------+--------------------------------+
+| owner_id               | INT UNSIGNED           | FK -> users.id           | Creating user                  |
++------------------------+------------------------+--------------------------+--------------------------------+
+| title                  | VARCHAR(255)           | NOT NULL                 | Project name                   |
++------------------------+------------------------+--------------------------+--------------------------------+
+| description            | TEXT                   | NULL                     | Free-text description          |
++------------------------+------------------------+--------------------------+--------------------------------+
+| status                 | ENUM(planning,active,o | DEFAULT planning         | Project status                 |
++------------------------+------------------------+--------------------------+--------------------------------+
+| priority               | ENUM(low,medium,high,c | DEFAULT medium           | Overall priority               |
++------------------------+------------------------+--------------------------+--------------------------------+
+| start_date             | DATE                   | NOT NULL                 | Planned start date             |
++------------------------+------------------------+--------------------------+--------------------------------+
+| end_date               | DATE                   | NOT NULL                 | Planned end date               |
++------------------------+------------------------+--------------------------+--------------------------------+
+| colour                 | VARCHAR(7)             | DEFAULT '#2563EB'        | Brand hex colour for Gantt     |
++------------------------+------------------------+--------------------------+--------------------------------+
+| created_at             | DATETIME               | DEFAULT NOW()            |                                |
++------------------------+------------------------+--------------------------+--------------------------------+
+| updated_at             | DATETIME               | ON UPDATE NOW()          |                                |
++------------------------+------------------------+--------------------------+--------------------------------+
+
+
+[ Table: project_members ]
+
++------------------------+------------------------+--------------------------+--------------------------------+
+| Column                 | Type                   | Constraints              | Description                    |
++========================+========================+==========================+================================+
+| id                     | INT UNSIGNED           | PK, AUTO_INCREMENT       |                                |
++------------------------+------------------------+--------------------------+--------------------------------+
+| project_id             | INT UNSIGNED           | FK -> projects.id        | Target project                 |
++------------------------+------------------------+--------------------------+--------------------------------+
+| user_id                | INT UNSIGNED           | FK -> users.id           | Member user                    |
++------------------------+------------------------+--------------------------+--------------------------------+
+| role                   | ENUM(viewer,editor,man | DEFAULT editor           | Member role on project         |
++------------------------+------------------------+--------------------------+--------------------------------+
+| invited_at             | DATETIME               | DEFAULT NOW()            |                                |
++------------------------+------------------------+--------------------------+--------------------------------+
+| accepted               | TINYINT(1)             | DEFAULT 1                | 0 = pending invite             |
++------------------------+------------------------+--------------------------+--------------------------------+
+
+
+[ Table: tasks ]
+
++------------------------+------------------------+--------------------------+--------------------------------+
+| Column                 | Type                   | Constraints              | Description                    |
++========================+========================+==========================+================================+
+| id                     | INT UNSIGNED           | PK, AUTO_INCREMENT       |                                |
++------------------------+------------------------+--------------------------+--------------------------------+
+| project_id             | INT UNSIGNED           | FK -> projects.id        | Owning project                 |
++------------------------+------------------------+--------------------------+--------------------------------+
+| parent_task_id         | INT UNSIGNED           | FK -> tasks.id, NULL     | NULL = top-level WBS item      |
++------------------------+------------------------+--------------------------+--------------------------------+
+| title                  | VARCHAR(255)           | NOT NULL                 | Task name                      |
++------------------------+------------------------+--------------------------+--------------------------------+
+| description            | TEXT                   | NULL                     | Detailed description           |
++------------------------+------------------------+--------------------------+--------------------------------+
+| task_type              | ENUM(task,summary,mile | DEFAULT task             | summary = WBS group header     |
++------------------------+------------------------+--------------------------+--------------------------------+
+| status                 | ENUM(not_started,in_pr | DEFAULT not_started      |                                |
++------------------------+------------------------+--------------------------+--------------------------------+
+| priority               | ENUM(low,medium,high,c | DEFAULT medium           |                                |
++------------------------+------------------------+--------------------------+--------------------------------+
+| start_date             | DATE                   | NOT NULL                 | Planned start                  |
++------------------------+------------------------+--------------------------+--------------------------------+
+| end_date               | DATE                   | NOT NULL                 | Planned end                    |
++------------------------+------------------------+--------------------------+--------------------------------+
+| actual_start           | DATE                   | NULL                     | Actual start recorded          |
++------------------------+------------------------+--------------------------+--------------------------------+
+| actual_end             | DATE                   | NULL                     | Actual completion              |
++------------------------+------------------------+--------------------------+--------------------------------+
+| duration_days          | INT                    | GENERATED ALWAYS         | DATEDIFF(end_date,start_date)+ |
++------------------------+------------------------+--------------------------+--------------------------------+
+| progress               | TINYINT                | DEFAULT 0                | 0-100 percent complete         |
++------------------------+------------------------+--------------------------+--------------------------------+
+| wbs_order              | INT                    | DEFAULT 0                | Vertical display order         |
++------------------------+------------------------+--------------------------+--------------------------------+
+| is_critical            | TINYINT(1)             | DEFAULT 0                | 1 = on critical path           |
++------------------------+------------------------+--------------------------+--------------------------------+
+| notes                  | TEXT                   | NULL                     | Internal notes                 |
++------------------------+------------------------+--------------------------+--------------------------------+
+| created_at             | DATETIME               | DEFAULT NOW()            |                                |
++------------------------+------------------------+--------------------------+--------------------------------+
+| updated_at             | DATETIME               | ON UPDATE NOW()          |                                |
++------------------------+------------------------+--------------------------+--------------------------------+
+
+
+[ Table: dependencies ]
+
++------------------------+------------------------+--------------------------+--------------------------------+
+| Column                 | Type                   | Constraints              | Description                    |
++========================+========================+==========================+================================+
+| id                     | INT UNSIGNED           | PK, AUTO_INCREMENT       |                                |
++------------------------+------------------------+--------------------------+--------------------------------+
+| project_id             | INT UNSIGNED           | FK -> projects.id        | For indexed queries            |
++------------------------+------------------------+--------------------------+--------------------------------+
+| predecessor_id         | INT UNSIGNED           | FK -> tasks.id           | Task that must occur first     |
++------------------------+------------------------+--------------------------+--------------------------------+
+| successor_id           | INT UNSIGNED           | FK -> tasks.id           | Task that depends on predecess |
++------------------------+------------------------+--------------------------+--------------------------------+
+| type                   | ENUM(FS,FF,SS,SF)      | DEFAULT FS               | FS=Finish-Start (default)      |
++------------------------+------------------------+--------------------------+--------------------------------+
+| lag_days               | INT                    | DEFAULT 0                | +ve=delay, -ve=overlap         |
++------------------------+------------------------+--------------------------+--------------------------------+
+| created_at             | DATETIME               | DEFAULT NOW()            |                                |
++------------------------+------------------------+--------------------------+--------------------------------+
+
+
+[ Table: milestones ]
+
++------------------------+------------------------+--------------------------+--------------------------------+
+| Column                 | Type                   | Constraints              | Description                    |
++========================+========================+==========================+================================+
+| id                     | INT UNSIGNED           | PK, AUTO_INCREMENT       |                                |
++------------------------+------------------------+--------------------------+--------------------------------+
+| project_id             | INT UNSIGNED           | FK -> projects.id        |                                |
++------------------------+------------------------+--------------------------+--------------------------------+
+| title                  | VARCHAR(255)           | NOT NULL                 | Milestone label                |
++------------------------+------------------------+--------------------------+--------------------------------+
+| due_date               | DATE                   | NOT NULL                 | Diamond marker date on Gantt   |
++------------------------+------------------------+--------------------------+--------------------------------+
+| achieved               | TINYINT(1)             | DEFAULT 0                | 1 = milestone reached          |
++------------------------+------------------------+--------------------------+--------------------------------+
+| achieved_on            | DATE                   | NULL                     | Actual achievement date        |
++------------------------+------------------------+--------------------------+--------------------------------+
+| notes                  | TEXT                   | NULL                     |                                |
++------------------------+------------------------+--------------------------+--------------------------------+
+| created_at             | DATETIME               | DEFAULT NOW()            |                                |
++------------------------+------------------------+--------------------------+--------------------------------+
+
+
+[ Table: resources ]
+
++------------------------+------------------------+--------------------------+--------------------------------+
+| Column                 | Type                   | Constraints              | Description                    |
++========================+========================+==========================+================================+
+| id                     | INT UNSIGNED           | PK, AUTO_INCREMENT       |                                |
++------------------------+------------------------+--------------------------+--------------------------------+
+| project_id             | INT UNSIGNED           | FK -> projects.id        |                                |
++------------------------+------------------------+--------------------------+--------------------------------+
+| name                   | VARCHAR(100)           | NOT NULL                 | Person or equipment name       |
++------------------------+------------------------+--------------------------+--------------------------------+
+| type                   | ENUM(person,equipment, | DEFAULT person           |                                |
++------------------------+------------------------+--------------------------+--------------------------------+
+| email                  | VARCHAR(255)           | NULL                     | Contact email for persons      |
++------------------------+------------------------+--------------------------+--------------------------------+
+| colour                 | VARCHAR(7)             | DEFAULT '#6366F1'        | Colour tag on Gantt bars       |
++------------------------+------------------------+--------------------------+--------------------------------+
+| created_at             | DATETIME               | DEFAULT NOW()            |                                |
++------------------------+------------------------+--------------------------+--------------------------------+
+
+
+[ Table: task_resources ]
+
++------------------------+------------------------+--------------------------+--------------------------------+
+| Column                 | Type                   | Constraints              | Description                    |
++========================+========================+==========================+================================+
+| id                     | INT UNSIGNED           | PK, AUTO_INCREMENT       |                                |
++------------------------+------------------------+--------------------------+--------------------------------+
+| task_id                | INT UNSIGNED           | FK -> tasks.id           |                                |
++------------------------+------------------------+--------------------------+--------------------------------+
+| resource_id            | INT UNSIGNED           | FK -> resources.id       |                                |
++------------------------+------------------------+--------------------------+--------------------------------+
+| allocation_pct         | TINYINT                | DEFAULT 100              | % of resource time on this tas |
++------------------------+------------------------+--------------------------+--------------------------------+
+| assigned_at            | DATETIME               | DEFAULT NOW()            |                                |
++------------------------+------------------------+--------------------------+--------------------------------+
+
+
+[ Table: audit_log ]
+
++------------------------+------------------------+--------------------------+--------------------------------+
+| Column                 | Type                   | Constraints              | Description                    |
++========================+========================+==========================+================================+
+| id                     | BIGINT UNSIGNED        | PK, AUTO_INCREMENT       |                                |
++------------------------+------------------------+--------------------------+--------------------------------+
+| user_id                | INT UNSIGNED           | FK -> users.id, NULL     | NULL for system events         |
++------------------------+------------------------+--------------------------+--------------------------------+
+| project_id             | INT UNSIGNED           | FK -> projects.id, NULL  | NULL for non-project events    |
++------------------------+------------------------+--------------------------+--------------------------------+
+| action                 | VARCHAR(100)           | NOT NULL                 | e.g. task.updated              |
++------------------------+------------------------+--------------------------+--------------------------------+
+| entity_type            | VARCHAR(50)            | NULL                     | e.g. task, project             |
++------------------------+------------------------+--------------------------+--------------------------------+
+| entity_id              | INT UNSIGNED           | NULL                     | ID of changed entity           |
++------------------------+------------------------+--------------------------+--------------------------------+
+| old_values             | JSON                   | NULL                     | Snapshot before change         |
++------------------------+------------------------+--------------------------+--------------------------------+
+| new_values             | JSON                   | NULL                     | Snapshot after change          |
++------------------------+------------------------+--------------------------+--------------------------------+
+| ip_address             | VARCHAR(45)            | NULL                     | Client IP (IPv4/IPv6)          |
++------------------------+------------------------+--------------------------+--------------------------------+
+| created_at             | DATETIME               | DEFAULT NOW()            |                                |
++------------------------+------------------------+--------------------------+--------------------------------+
+
+
+================================================================================
+  6. BACKEND API SPECIFICATION
+================================================================================
+
+
+6.1 Conventions
+--------------------------------------------------------------------------------
+
+  * Every endpoint file begins with:  <?php  require_once '../setup.php';
+  * All responses use send_response($data, $code) from setup.php.
+  * Success = HTTP 200/201. Client error = 400/401/403/404. Server error = 500.
+  * Response envelope: { "status_code": 200, "data": {...}, "message": "ok" }
+  * All POST bodies are JSON (Content-Type: application/json).
+  * Auth: Bearer JWT in Authorization header (enforced by setup.php enforce_auth_if_needed).
+  * authToken.php is the only endpoint exempt from auth (see setup.php allowlist).
+  * $receivedData (from setup.php) is used for POST body access; $_GET for query params.
+  * Always call log_info() at the start of each endpoint with the received data.
+  * Always verify that $GLOBALS["authenticatedUser"] has access to the requested resource.
+
+
+6.2 Authentication Endpoints
+--------------------------------------------------------------------------------
+
+  POST  /auth/register.php
+  Purpose  : Register new user. Hash password with password_hash() at cost 12.
+             Generate 64-char verify_token via random_bytes(32)->bin2hex(). Send
+             verification email via PHPMailer. Return 201 on success.
+  Body     : { email, password, screen_name }
+  Response : { message: "Verification email sent" }
+
+  POST  /auth/authToken.php
+  Purpose  : Login. Validate email/password. Check is_verified=1. Call create_jwt()
+             from setup.php. Return token + expiry + user object.
+  Body     : { email, password }
+  Response : { token, exp, user: { id, email, screen_name, avatar_path, role } }
+
+  GET  /auth/verifyEmail.php?token=XXX
+  Purpose  : Look up verify_token. Check expiry. Set is_verified=1. Clear token
+             fields. Redirect to {appUrl}/login?verified=1.
+  Body     : (query param: token)
+  Response : HTTP 302 redirect to frontend
+
+  POST  /auth/forgotPassword.php
+  Purpose  : Generate reset_token + reset_token_exp (1 hour). Send reset email
+             linking to {appUrl}/reset-password?token=XXX.
+  Body     : { email }
+  Response : { message: "Reset email sent if account exists" }
+
+  POST  /auth/resetPassword.php
+  Purpose  : Validate reset_token and expiry. Hash new password at cost 12. Clear
+             token fields.
+  Body     : { token, password }
+  Response : { message: "Password updated" }
+
+  POST  /auth/refreshToken.php
+  Purpose  : Accept valid JWT, return new JWT with refreshed expiry. Intended for
+             use within 30 minutes of expiry.
+  Body     : (Authorization header only)
+  Response : { token, exp }
+
+
+6.3 User Endpoints
+--------------------------------------------------------------------------------
+
+  GET  /users/getProfile.php
+  Purpose  : Return authenticated user profile. Never include password_hash in
+             response.
+  Body     : (none)
+  Response : { id, email, screen_name, avatar_path, role, created_at }
+
+  POST  /users/updateProfile.php
+  Purpose  : Update screen_name. Write to audit_log.
+  Body     : { screen_name }
+  Response : { message: "Profile updated" }
+
+  POST  /users/changePassword.php
+  Purpose  : Verify current_password against stored hash. Hash new_password. Update
+             record. Write to audit_log.
+  Body     : { current_password, new_password }
+  Response : { message: "Password changed" }
+
+  POST  /users/uploadAvatar.php
+  Purpose  : Multipart form upload. Validate MIME via mime_content_type() (must be
+             image/gif, image/jpeg, or image/png). Max 10 MB. Save to
+             uploads/avatars/{user_id}.{ext}, overwriting any previous avatar.
+             Update avatar_path in users table.
+  Body     : multipart/form-data, field name: avatar
+  Response : { avatar_path: "uploads/avatars/42.jpg" }
+
+
+6.4 Project Endpoints
+--------------------------------------------------------------------------------
+
+  GET  /projects/getProjects.php
+  Purpose  : Return projects visible to the authenticated user. Students see only
+             projects where they are owner or member. Teachers and admins see ALL
+             projects in the system, grouped by owner. Optional query param
+             ?owner_id=X lets teachers/admins filter to one student. Response
+             includes member count, task count, overall progress (AVG task
+             progress).
+  Body     : (none; optional ?owner_id=X for teacher/admin filter)
+  Response : { data: [ project+ ] }
+
+  GET  /projects/getAllStudents.php
+  Purpose  : Teacher/admin only — return 403 if role=student. Returns list of all
+             registered student users with their project count and overall progress
+             stats, for the teacher oversight dashboard.
+  Body     : (none)
+  Response : { data: [ { id, screen_name, email, project_count, avg_progress }+ ] }
+
+  GET  /projects/getProject.php?id=X
+  Purpose  : Return single project with full member list and statistics.
+             Teachers/admins may access any project; students may only access
+             projects they own or are a member of.
+  Body     : (query param: id)
+  Response : { data: project }
+
+  POST  /projects/createProject.php
+  Purpose  : Create project. Auto-assign creator as project_members row with
+             role=manager.
+  Body     : { title, description, status, priority, start_date, end_date, colour }
+  Response : { data: { id, ...project } }
+
+  POST  /projects/updateProject.php
+  Purpose  : Update project fields. Students: only owner or project-member with
+             role=manager may update. Teachers/admins: may update any project.
+  Body     : { id, title, description, status, priority, start_date, end_date, colour }
+  Response : { message: "Updated" }
+
+  POST  /projects/deleteProject.php
+  Purpose  : Soft delete (set status=cancelled) or hard delete if owner requests.
+             Cascade deletes tasks, dependencies, milestones, resources via FK.
+  Body     : { id, hard_delete: false }
+  Response : { message: "Deleted" }
+
+  POST  /projects/addMember.php
+  Purpose  : Look up user by email. Add to project_members. Send invitation email
+             via PHPMailer.
+  Body     : { project_id, email, role }
+  Response : { message: "Invitation sent" }
+
+
+6.5 Task Endpoints
+--------------------------------------------------------------------------------
+
+  GET  /tasks/getTasks.php?project_id=X
+  Purpose  : Return all tasks for project ordered by wbs_order. Include assigned
+             resource IDs.
+  Body     : (query param: project_id)
+  Response : { data: [ task+ ] }
+
+  POST  /tasks/createTask.php
+  Purpose  : Create task. Validate start_date <= end_date. If parent_task_id is
+             set, verify parent belongs to same project. Auto-set wbs_order to
+             max+1.
+  Body     : { project_id, parent_task_id, title, description, task_type, priority, start_date, end_date, notes }
+  Response : { data: { id, ...task } }
+
+  POST  /tasks/updateTask.php
+  Purpose  : Update task. When dates change: return cascade_preview array showing
+             which successor tasks would be affected and by how much. The actual
+             cascade is applied only when frontend sends cascade:true in a
+             subsequent call. Write changed fields to audit_log.
+  Body     : { id, title, start_date, end_date, status, progress, priority, notes, cascade }
+  Response : { data: task, cascade_preview: [ {task_id, old_start, new_start, old_end, new_end}+ ] }
+
+  POST  /tasks/reorderTasks.php
+  Purpose  : Batch update wbs_order for multiple tasks. Body is an array of {id,
+             wbs_order} pairs.
+  Body     : [ { id, wbs_order }+ ]
+  Response : { message: "Reordered" }
+
+  POST  /tasks/deleteTask.php
+  Purpose  : Delete task. If task has children (parent_task_id = this id), delete
+             children first or reassign to grandparent. Write to audit_log.
+  Body     : { id }
+  Response : { message: "Deleted" }
+
+
+6.6 Dependency Endpoints
+--------------------------------------------------------------------------------
+
+  GET  /dependencies/getDependencies.php?project_id=X
+  Purpose  : Return all dependency links for the project.
+  Body     : (query param: project_id)
+  Response : { data: [ { id, predecessor_id, successor_id, type, lag_days }+ ] }
+
+  POST  /dependencies/createDependency.php
+  Purpose  : Create dependency link. Validate: predecessor and successor must
+             belong to same project. Detect circular dependencies using depth-first
+             graph traversal BEFORE inserting. Return 400 if cycle detected.
+  Body     : { project_id, predecessor_id, successor_id, type, lag_days }
+  Response : { data: { id, ...dependency } }
+
+  POST  /dependencies/deleteDependency.php
+  Purpose  : Delete a dependency link by id.
+  Body     : { id }
+  Response : { message: "Deleted" }
+
+
+6.7 Resource Endpoints
+--------------------------------------------------------------------------------
+
+  GET  /resources/getResources.php?project_id=X
+  Purpose  : Return all resources for the project with their task assignments.
+  Body     : (query param: project_id)
+  Response : { data: [ resource+ ] }
+
+  POST  /resources/createResource.php
+  Purpose  : Create a new resource for the project.
+  Body     : { project_id, name, type, email, colour }
+  Response : { data: { id, ...resource } }
+
+  POST  /resources/assignResource.php
+  Purpose  : Assign resource to task. Validate allocation_pct is 1-100. Multiple
+             resources per task are allowed.
+  Body     : { task_id, resource_id, allocation_pct }
+  Response : { message: "Assigned" }
+
+  POST  /resources/removeAssignment.php
+  Purpose  : Remove a resource-task assignment.
+  Body     : { task_id, resource_id }
+  Response : { message: "Removed" }
+
+
+6.8 Milestone Endpoints
+--------------------------------------------------------------------------------
+
+  GET  /milestones/getMilestones.php?project_id=X
+  Purpose  : Return all milestones for the project.
+  Body     : (query param: project_id)
+  Response : { data: [ milestone+ ] }
+
+  POST  /milestones/createMilestone.php
+  Purpose  : Create a milestone.
+  Body     : { project_id, title, due_date, notes }
+  Response : { data: { id, ...milestone } }
+
+  POST  /milestones/updateMilestone.php
+  Purpose  : Update milestone. Setting achieved:true records achieved_on as today.
+  Body     : { id, title, due_date, achieved, notes }
+  Response : { message: "Updated" }
+
+
+6.9 Report Endpoints
+--------------------------------------------------------------------------------
+
+  GET  /reports/getTaskReport.php?project_id=X
+  Purpose  : Return full task list with WBS hierarchy, resources, dependencies,
+             status, progress and dates — structured for PDF table generation on
+             the frontend.
+  Body     : (query param: project_id)
+  Response : { data: { project, tasks, milestones, resources, summary_stats } }
+
+
+================================================================================
+  7. AUTHENTICATION & USER MANAGEMENT
+================================================================================
+
+
+7.1 JWT Flow
+--------------------------------------------------------------------------------
+
+  * On login, authToken.php returns { token, exp }.
+  * Frontend stores token in localStorage under key: ganttmanager_jwt
+  * authStore.js (Zustand) holds { token, user, isAuthenticated }.
+  * client.js injects "Authorization: Bearer {token}" on every API call.
+  * On 401 response, client.js clears the store and redirects to /login.
+  * Token auto-refresh: if token expires within 30 minutes, App.jsx calls refreshToken.php silently on each route change.
+  * Teachers/admins are redirected from /dashboard to /teacher immediately after login.
+
+
+7.2 Registration Flow
+--------------------------------------------------------------------------------
+
+  1. User submits email + password + screen_name.
+  2. Backend validates: email format, password min 8 chars with at least 1 number and 1 uppercase, unique email.
+  3. Backend generates random 64-char hex verify_token, stores with 24-hour expiry.
+  4. PHPMailer sends email with link: {appUrl}/verify-email?token={token}
+  5. User clicks link -> GET verifyEmail.php -> is_verified set to 1 -> redirect to /login?verified=1
+  6. Frontend shows toast: "Email verified! You can now log in."
+
+
+7.3 Password Rules  (enforced identically by Zod on frontend and PHP on backend)
+--------------------------------------------------------------------------------
+
+  * Minimum 8 characters.
+  * At least one uppercase letter.
+  * At least one number.
+  * Stored as bcrypt hash with cost factor 12.
+
+
+7.4 Avatar Upload Rules
+--------------------------------------------------------------------------------
+
+  * Accepted MIME types: image/gif, image/jpeg, image/png.
+  * Maximum size: 10 MB (10,485,760 bytes).
+  * Backend validates MIME type from file contents using mime_content_type() — NOT from extension.
+  * Stored as uploads/avatars/{user_id}.{ext} (overwrites previous avatar).
+  * Old avatar file is deleted from disk when replaced.
+  * Frontend previews image before upload using FileReader API and rejects invalid files client-side.
+
+
+================================================================================
+  8. PROJECT MANAGEMENT FEATURES
+================================================================================
+
+
+8.1 Work Breakdown Structure (WBS)
+--------------------------------------------------------------------------------
+
+Tasks are hierarchical. A summary task (task_type=summary) acts as a
+collapsible group header. Its Gantt bar spans the combined start/end range of
+all child tasks. Its progress is the weighted average of children by duration.
+
+  * Drag-and-drop reordering updates wbs_order in batch via reorderTasks.php.
+  * Indent/outdent sets or clears parent_task_id.
+  * Maximum nesting depth: 3 levels (for pedagogical clarity).
+  * Deleting a summary task deletes all children (CASCADE in MySQL).
+
+
+8.2 Dependency Types
+--------------------------------------------------------------------------------
+
++-------+----------------------+--------------------------------------------------+
+| Type  | Full Name            | Description                                      |
++=======+======================+==================================================+
+| FS    | Finish-to-Start      | Successor cannot start until predecessor finishe |
++-------+----------------------+--------------------------------------------------+
+| FF    | Finish-to-Finish     | Successor cannot finish until predecessor finish |
++-------+----------------------+--------------------------------------------------+
+| SS    | Start-to-Start       | Successor cannot start until predecessor starts. |
++-------+----------------------+--------------------------------------------------+
+| SF    | Start-to-Finish      | Successor cannot finish until predecessor starts |
++-------+----------------------+--------------------------------------------------+
+
+Lag days (positive integer) adds a waiting period after the dependency
+condition is met. Negative lag (lead time) allows overlap between tasks.
+
+
+8.3 Real-Time Dependency Cascade
+--------------------------------------------------------------------------------
+
+When a user drags a Gantt bar or edits a task date, the cascade engine runs
+client-side first (optimistic UI), then the backend confirms:
+
+  1. Frontend useDependencies.js hook builds a directed graph of all tasks/dependencies in memory.
+  2. On date change, a topological traversal propagates new dates to all successors based on dependency type and lag.
+  3. Affected tasks are highlighted in amber on the Gantt chart.
+  4. A confirmation modal lists all affected tasks: "Changing Task A end date will shift 3 downstream tasks. Apply?"
+  5. On confirm, updateTask.php is called with cascade:true.
+  6. Backend re-runs the cascade server-side and writes all affected task records atomically.
+  7. React Query invalidates the tasks query, triggering a full re-render of the Gantt chart.
+
+
+8.4 Critical Path
+--------------------------------------------------------------------------------
+
+The critical path is the longest chain of dependencies from project start to
+end. Any delay to a critical-path task directly delays the project end date.
+
+  * Calculated client-side in useCriticalPath.js using the standard forward/backward pass algorithm.
+  * Critical-path tasks are highlighted in red on the Gantt chart (bars and arrows).
+  * is_critical=1 is written to the database on each save for audit purposes.
+  * Recalculated every time the tasks or dependencies query is refetched.
+
+
+8.5 Milestones
+--------------------------------------------------------------------------------
+
+Milestones are fixed-date markers shown as diamond shapes on the Gantt chart
+timeline. They are independent of tasks but visually aligned to the date axis.
+
+  * Achieved milestones are shown in green; overdue milestones in red; future milestones in gold.
+  * A milestone may be informally linked to a task by matching dates (not a hard constraint in v1).
+
+
+8.6 Progress Tracking
+--------------------------------------------------------------------------------
+
+  * Each task has a progress field (0-100%).
+  * Updated via a slider in the TaskPanel drawer.
+  * Summary task progress = duration-weighted average of children (computed on frontend).
+  * Overall project progress shown on Dashboard as a donut chart.
+  * Tasks set to status=completed automatically set progress=100.
+
+
+8.7 Resource Management
+--------------------------------------------------------------------------------
+
+Resources represent people, equipment or materials assigned to tasks. Each
+resource has a colour used to tag Gantt bars and power the resource view.
+
+  * A resource can be assigned to multiple tasks.
+  * If a resource's total allocation_pct exceeds 100% for any overlapping date range, show an overallocation warning badge on the resource in the resource view (client-side only in v1).
+  * Resource view (tab on GanttPage): horizontal bands per resource showing task bars in resource colour.
+
+
+================================================================================
+  9. GANTT CHART COMPONENT SPECIFICATION
+================================================================================
+
+
+9.1 Layout
+--------------------------------------------------------------------------------
+
+GanttChart.jsx is a two-pane layout: a fixed-width left pane (task list) and a
+scrollable right pane (timeline canvas). Both panes scroll vertically in sync.
+The timeline pane scrolls horizontally independently.
+
++--------------------------+----------------------------------------------------+
+| Property                 | Value                                              |
++==========================+====================================================+
+| Left pane width          | 320px fixed                                        |
++--------------------------+----------------------------------------------------+
+| Row height               | 40px per task                                      |
++--------------------------+----------------------------------------------------+
+| Column width (Day)       | 24px                                               |
++--------------------------+----------------------------------------------------+
+| Column width (Week)      | 80px                                               |
++--------------------------+----------------------------------------------------+
+| Column width (Month)     | 280px                                              |
++--------------------------+----------------------------------------------------+
+| Default zoom             | Week                                               |
++--------------------------+----------------------------------------------------+
+| Timeline overrun         | 4 weeks past project end_date                      |
++--------------------------+----------------------------------------------------+
+
+
+9.2 Gantt Header (Date Ruler)
+--------------------------------------------------------------------------------
+
+  * Two rows: top = month name + year; bottom = day numbers or week-starting dates by zoom level.
+  * Today is highlighted with a vertical red line across the full chart height.
+  * Milestone due dates are shown as gold diamond icons on the date ruler.
+
+
+9.3 GanttBar (Draggable / Resizable)  — built with react-dnd
+--------------------------------------------------------------------------------
+
+  * Bar colour: first assigned resource colour, or project.colour if no resource assigned.
+  * Drag left/right: changes start_date and end_date equally (duration preserved).
+  * Drag right edge: changes end_date only.
+  * Drag left edge: changes start_date only.
+  * Summary bars: thicker bar with angled end caps (classic MS Project style).
+  * Milestone bars: diamond shape on the date axis (no width).
+  * Progress fill: darker overlay inside the bar representing progress %.
+  * Critical path bars: red border and slightly darker fill.
+  * Tooltip on hover: task title, dates, duration, progress, assigned resources.
+
+
+9.4 Dependency Arrows (SVG)
+--------------------------------------------------------------------------------
+
+GanttDependencyLines.jsx renders SVG arrows on an absolutely positioned layer
+spanning the full chart canvas.
+
+  * FS dependency: right edge of predecessor -> left edge of successor (right-angle elbow).
+  * Critical path dependencies: red; others: mid-grey (#9CA3AF).
+  * Arrowhead markers defined in SVG <defs>.
+  * Arrows re-render instantly when tasks are moved (no perceptible lag required).
+
+
+9.5 Zoom Controls
+--------------------------------------------------------------------------------
+
+  * Three levels: Day | Week | Month. Toolbar buttons toggle between them.
+  * On zoom change, the chart scrolls to keep "today" visible in the viewport.
+
+
+9.6 Toolbar Actions
+--------------------------------------------------------------------------------
+
+  * + Add Task          : opens TaskForm modal
+  * + Add Milestone     : opens milestone form
+  * Zoom In / Zoom Out  : cycles through Day / Week / Month
+  * Show Critical Path  : toggle red highlights on critical tasks/arrows
+  * Export PDF          : calls generateGanttPDF() from pdfUtils.js
+  * Filter              : dropdown to filter by status, priority, or resource
+
+
+================================================================================
+  10. FRONTEND PAGES & ROUTING
+================================================================================
+
+
+10.1 Route Map
+--------------------------------------------------------------------------------
+
++--------------------------+--------------------------+------------------------------+
+| Route                    | Page Component           | Notes                        |
++==========================+==========================+==============================+
+| /login                   | LoginPage                | Public                       |
++--------------------------+--------------------------+------------------------------+
+| /register                | RegisterPage             | Public                       |
++--------------------------+--------------------------+------------------------------+
+| /verify-email            | VerifyEmailPage          | Public (token in query param |
++--------------------------+--------------------------+------------------------------+
+| /forgot-password         | ForgotPasswordPage       | Public                       |
++--------------------------+--------------------------+------------------------------+
+| /reset-password          | ResetPasswordPage        | Public (token in query param |
++--------------------------+--------------------------+------------------------------+
+| /dashboard               | DashboardPage            | Protected — student landing  |
++--------------------------+--------------------------+------------------------------+
+| /teacher                 | TeacherDashboardPage     | Protected — teacher/admin on |
++--------------------------+--------------------------+------------------------------+
+| /projects/:id            | ProjectPage              | Protected — overview & membe |
++--------------------------+--------------------------+------------------------------+
+| /projects/:id/gantt      | GanttPage                | Protected — main Gantt view  |
++--------------------------+--------------------------+------------------------------+
+| /projects/:id/reports    | ReportsPage              | Protected — PDF generation   |
++--------------------------+--------------------------+------------------------------+
+| /profile                 | ProfilePage              | Protected — own account sett |
++--------------------------+--------------------------+------------------------------+
+
+
+10.2 DashboardPage  (Student View)
+--------------------------------------------------------------------------------
+
+  * Grid of ProjectCard components: title, status badge, progress donut, start/end dates, member avatars.
+  * Summary statistics: total projects, projects on track, overdue milestones.
+  * Quick-create project button opens ProjectForm modal.
+  * Teachers and admins are automatically redirected from /dashboard to /teacher on login.
+
+
+10.3 TeacherDashboardPage  (Teacher / Admin Only)
+--------------------------------------------------------------------------------
+
+Accessible only to users with role=teacher or admin. Any student attempting
+/teacher is redirected to /dashboard. This is the primary landing page for
+teacher/admin accounts.
+
+  * Student roster table: screen_name, email, project count, average progress, View Projects button.
+  * Clicking View Projects filters the project grid below to that student (calls getProjects.php?owner_id=X).
+  * Class-wide stats panel: total students, total projects, class average progress, overdue milestones across all projects.
+  * Each ProjectCard in teacher view shows an additional "Student: [screen_name]" label.
+  * Teachers can open any project Gantt/Reports in read-only mode (editing blocked if not a project member).
+  * Leave Comment feature (v1: appends a note to audit_log) lets teachers annotate a project for the student.
+
+
+10.4 GanttPage
+--------------------------------------------------------------------------------
+
+  * Two tabs: Gantt Chart | Resource View.
+  * Gantt Chart tab renders GanttChart.jsx.
+  * Resource View tab: rows per resource, date axis columns, task bars in resource colour.
+  * TaskPanel drawer slides in from the right when a task row is clicked.
+  * TaskPanel contains: task detail form, progress slider, resource assignment, notes, dependency display.
+
+
+10.5 ProjectPage
+--------------------------------------------------------------------------------
+
+  * Project header: title, status badge, dates, description, Edit button (if authorised).
+  * Members tab: list of project members with role badges, invite by email form, remove member button.
+  * Milestones tab: list of milestones with achieved toggle.
+  * Resources tab: list of project resources with edit/delete.
+
+
+10.6 ProfilePage
+--------------------------------------------------------------------------------
+
+  * Avatar uploader: FileReader preview, client-side MIME and 10 MB validation before upload.
+  * Screen name edit field with inline save.
+  * Change password form: current password, new password, confirm new password.
+
+
+================================================================================
+  11. STATE MANAGEMENT
+================================================================================
+
+
+11.1 Zustand: authStore.js
+--------------------------------------------------------------------------------
+
+  ```
+  const useAuthStore = create((set) => ({
+    token:           null,
+    user:            null,
+    isAuthenticated: false,
+    setAuth:   (token, user) => set({ token, user, isAuthenticated: true }),
+    clearAuth: ()            => set({ token: null, user: null, isAuthenticated: false }),
+  }));
+  ```
+
+
+11.2 Zustand: projectStore.js
+--------------------------------------------------------------------------------
+
+  ```
+  const useProjectStore = create((set) => ({
+    activeProjectId:  null,
+    zoomLevel:        "week",   // "day" | "week" | "month"
+    showCriticalPath: false,
+    selectedTaskId:   null,
+    filters: { status: null, priority: null, resourceId: null },
+  
+    setActiveProject:   (id) => set({ activeProjectId: id }),
+    setZoomLevel:       (z)  => set({ zoomLevel: z }),
+    toggleCriticalPath: ()   => set((s) => ({ showCriticalPath: !s.showCriticalPath })),
+    setSelectedTask:    (id) => set({ selectedTaskId: id }),
+    setFilters:         (f)  => set((s) => ({ filters: { ...s.filters, ...f } })),
+  }));
+  ```
+
+
+11.3 React Query Keys
+--------------------------------------------------------------------------------
+
++--------------------------------+----------------------------------------------+
+| Query Key                      | Data                                         |
++================================+==============================================+
+| ['projects']                   | All projects for current user                |
++--------------------------------+----------------------------------------------+
+| ['project', id]                | Single project detail                        |
++--------------------------------+----------------------------------------------+
+| ['tasks', projectId]           | All tasks for a project                      |
++--------------------------------+----------------------------------------------+
+| ['dependencies', projectId]    | All dependency links for a project           |
++--------------------------------+----------------------------------------------+
+| ['resources', projectId]       | All resources for a project                  |
++--------------------------------+----------------------------------------------+
+| ['milestones', projectId]      | All milestones for a project                 |
++--------------------------------+----------------------------------------------+
+| ['profile']                    | Current user profile                         |
++--------------------------------+----------------------------------------------+
+| ['students']                   | All students (teacher/admin only)            |
++--------------------------------+----------------------------------------------+
+
+
+================================================================================
+  12. PDF REPORT SPECIFICATION
+================================================================================
+
+
+12.1 Technology
+--------------------------------------------------------------------------------
+
+PDF generation is entirely client-side using jsPDF (text/table pages) and
+html2canvas (Gantt chart capture). This avoids server-side PDF libraries and
+gives pixel-perfect Gantt output. Default page size: A4 Landscape (297 x 210
+mm).
+
+
+12.2 Report Page Order
+--------------------------------------------------------------------------------
+
+  1. Cover page: project title, dates, status, description, generated-by user, generation timestamp.
+  2. Executive summary table: total tasks, completed, in-progress, not-started, overall progress %, overdue tasks, milestone count and achieved count.
+  3. Task table (auto-paginates): WBS order, title (indented by level), type, priority, start, end, duration, progress bar, status, assigned resources.
+  4. Milestone table: title, due date, status (achieved / pending / overdue).
+  5. Resource utilisation table: resource name, type, task count, total allocated days.
+  6. Gantt chart page(s): html2canvas capture of GanttChart rendered at print scale. May span multiple landscape pages for long projects.
+
+
+12.3 pdfUtils.js Exported Functions
+--------------------------------------------------------------------------------
+
+  ```
+  generateProjectReport(project, tasks, milestones, resources)
+    // Orchestrates all pages, returns jsPDF doc for save or share
+  
+  generateGanttPDF(ganttChartRef)
+    // html2canvas capture, auto-scaled to landscape A4
+  
+  addCoverPage(doc, project)
+  addSummaryTable(doc, stats)
+  addTaskTable(doc, tasks)           // auto-paginates
+  addMilestoneTable(doc, milestones)
+  addResourceTable(doc, resources)
+  ```
+
+
+12.4 Sharing Options
+--------------------------------------------------------------------------------
+
+  * Save to device  : doc.save('{ProjectTitle}_Report.pdf')
+  * Open in new tab : doc.output('bloburl') -> window.open()
+  * Print dialog    : window.print() after injecting a print-optimised stylesheet
+
+
+================================================================================
+  13. EMAIL NOTIFICATIONS  (PHPMailer)
+================================================================================
+
+
+13.1 Shared Mailer Factory  (api/mailer.php)
+--------------------------------------------------------------------------------
+
+Create api/mailer.php — included by any endpoint needing email. Reads SMTP
+config from $config and returns a configured PHPMailer instance.
+
+  ```
+  <?php
+  function get_mailer($config) {
+      $mail = new PHPMailer\PHPMailer\PHPMailer(true);
+      $mail->isSMTP();
+      $mail->Host       = $config["smtpHost"];
+      $mail->SMTPAuth   = true;
+      $mail->Username   = $config["smtpUser"];
+      $mail->Password   = $config["smtpPassword"];
+      $mail->SMTPSecure = $config["smtpSecure"]; // "tls" or "ssl"
+      $mail->Port       = $config["smtpPort"];
+      $mail->setFrom($config["smtpFromEmail"], $config["smtpFromName"]);
+      $mail->isHTML(true);
+      return $mail;
+  }
+  ```
+
+
+13.2 Email Triggers
+--------------------------------------------------------------------------------
+
++-------------------------------------+-----------------------------------------+
+| Trigger                             | Sent from                               |
++=====================================+=========================================+
+| Registration email verification     | POST /auth/register.php                 |
++-------------------------------------+-----------------------------------------+
+| Password reset link                 | POST /auth/forgotPassword.php           |
++-------------------------------------+-----------------------------------------+
+| Project member invitation           | POST /projects/addMember.php            |
++-------------------------------------+-----------------------------------------+
+| Milestone overdue alert             | (v1: manual only; future: cron job)     |
++-------------------------------------+-----------------------------------------+
+
+
+13.3 Email Template Requirements
+--------------------------------------------------------------------------------
+
+All email bodies are inline HTML strings within each PHP endpoint. Every email
+must include:
+
+  * GanttManager logo placeholder (text-based in v1: bold navy heading "GanttManager").
+  * Primary action button with inline CSS (required for email client compatibility).
+  * PHPMailer AltBody set with plain-text version.
+  * Footer: "This email was sent by GanttManager. If you did not request this, please ignore it."
+
+
+================================================================================
+  14. CSS ARCHITECTURE  (App.css)
+================================================================================
+
+
+14.1 Rules
+--------------------------------------------------------------------------------
+
+  * ALL styles live in src/App.css. Zero inline styles. Zero CSS modules. Zero styled-components.
+  * Use CSS custom properties (variables) for all colours, spacing and typography.
+  * Use semantic class names prefixed by component: .gantt-bar, .task-panel, .project-card.
+  * Responsive breakpoints: 768px (tablet), 1024px (desktop), 1280px (wide).
+  * Dark mode via prefers-color-scheme media query only (v1, no manual toggle).
+
+
+14.2 CSS Custom Properties  (:root)
+--------------------------------------------------------------------------------
+
+  ```
+  :root {
+    /* Brand */                
+    --color-primary:       #2563EB;
+    --color-primary-dark:  #1D4ED8;
+    --color-primary-light: #DBEAFE;
+    --color-navy:          #1B3A5C;
+    --color-accent:        #7C3AED;
+  
+    /* Semantic */             
+    --color-success:       #16A34A;
+    --color-warning:       #D97706;
+    --color-danger:        #DC2626;
+    --color-info:          #0891B2;
+  
+    /* Neutrals */             
+    --color-bg:            #F9FAFB;
+    --color-surface:       #FFFFFF;
+    --color-border:        #E5E7EB;
+    --color-text:          #111827;
+    --color-text-muted:    #6B7280;
+    --color-text-disabled: #9CA3AF;
+  
+    /* Gantt-specific */       
+    --gantt-row-height:    40px;
+    --gantt-left-pane:     320px;
+    --gantt-col-day:       24px;
+    --gantt-col-week:      80px;
+    --gantt-col-month:     280px;
+    --gantt-today-line:    #EF4444;
+    --gantt-bar-radius:    4px;
+    --gantt-critical:      #DC2626;
+  
+    /* Layout */               
+    --sidebar-width:       240px;
+    --topbar-height:       60px;
+    --panel-shadow:        0 4px 24px rgba(0,0,0,0.10);
+  
+    /* Typography */           
+    --font-sans:   "Inter", system-ui, sans-serif;
+    --font-mono:   "JetBrains Mono", monospace;
+    --text-xs:     0.75rem;
+    --text-sm:     0.875rem;
+    --text-base:   1rem;
+    --text-lg:     1.125rem;
+    --text-xl:     1.25rem;
+  
+    /* Spacing scale */        
+    --space-1: 4px;  --space-2: 8px;  --space-3: 12px;
+    --space-4: 16px; --space-6: 24px; --space-8: 32px;
+  
+    /* Misc */                 
+    --transition-fast: 120ms ease;
+    --transition-base: 200ms ease;
+    --radius-sm: 4px; --radius-md: 8px; --radius-lg: 12px;
+  }
+  
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --color-bg:         #0F172A;
+      --color-surface:    #1E293B;
+      --color-border:     #334155;
+      --color-text:       #F1F5F9;
+      --color-text-muted: #94A3B8;
+    }
+  }
+  ```
+
+
+14.3 App.css Section Order  (maintain this order)
+--------------------------------------------------------------------------------
+
+  1. CSS Reset & base typography
+  2. :root custom properties (as above)
+  3. Layout: .app-shell, .sidebar, .topbar, .main-content
+  4. Auth pages: .auth-page, .auth-card, .auth-logo
+  5. Dashboard: .dashboard, .project-grid, .project-card, .stat-card
+  6. Teacher dashboard: .teacher-dashboard, .student-roster, .class-stats
+  7. Gantt chart: every subcomponent prefixed .gantt-*
+  8. Task panel drawer: .task-panel, .task-panel--open
+  9. Forms: .form-group, .form-label, .form-input, .form-error
+  10. UI primitives: .btn, .btn-*, .badge, .progress-bar, .avatar
+  11. Modal: .modal-overlay, .modal, .modal-header, .modal-body, .modal-footer
+  12. Toast overrides (react-hot-toast)
+  13. Profile page: .profile-page, .avatar-uploader
+  14. Reports page: .reports-page, .report-preview
+  15. @media print styles
+
+
+================================================================================
+  15. VITE CONFIGURATION  (vite.config.js)
+================================================================================
+
+  ```
+  import { defineConfig } from 'vite';
+  import react from '@vitejs/plugin-react';
+  
+  export default defineConfig({
+    plugins: [react()],
+    server: {
+      port: 5173,
+      proxy: {
+        '/api': {
+          target: 'http://localhost',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api/, '/ganttmanager/api'),
+        }
+      }
+    },
+    build: {
+      outDir: 'dist',
+      sourcemap: true
+    }
+  });
+  ```
+
+
+================================================================================
+  16. SECURITY CHECKLIST
+================================================================================
+
+
+16.1 Backend
+--------------------------------------------------------------------------------
+
+  * All SQL queries use mysqli prepared statements — no string concatenation in queries.
+  * Passwords hashed with password_hash($pass, PASSWORD_BCRYPT, ["cost" => 12]).
+  * JWT secret: minimum 64-char random string stored only in .config.json.
+  * .config.json is in .gitignore and must never be committed.
+  * Avatar upload validates MIME via mime_content_type(), not file extension.
+  * Avatar filenames are user_id + extension — never user-supplied filenames.
+  * Email tokens are random_bytes(32) -> bin2hex() (64 hex chars).
+  * Project access: always verify $GLOBALS["authenticatedUser"] has membership before returning project data — except for teacher/admin role which bypasses the membership check.
+  * getAllStudents.php and TeacherDashboardPage must return 403 if role=student.
+
+
+16.2 Frontend
+--------------------------------------------------------------------------------
+
+  * JWT stored in localStorage (acceptable for this educational context; document the HttpOnly cookie alternative for any production deployment).
+  * All user-supplied text rendered via React JSX (auto-escaped; no dangerouslySetInnerHTML).
+  * Zod schemas on frontend mirror PHP validation rules exactly.
+  * No API keys or secrets in frontend code or .env files committed to the repository.
+  * ProtectedRoute.jsx checks isAuthenticated and role before rendering protected pages.
+
+
+================================================================================
+  17. RECOMMENDED IMPLEMENTATION ORDER
+================================================================================
+
+
+Phase 1 — Foundation
+--------------------------------------------------------------------------------
+
+  1. Create MySQL database and run schema SQL (all tables in Section 5).
+  2. Write .config.json with DB + SMTP credentials.
+  3. Copy setup.php into api/. Verify DB connection via log output.
+  4. Implement auth endpoints: register, authToken, verifyEmail.
+  5. Scaffold Vite project; install all dependencies; configure proxy in vite.config.js.
+  6. Build LoginPage, RegisterPage, VerifyEmailPage with App.css styles.
+  7. Implement authStore.js, client.js, ProtectedRoute.jsx.
+
+
+Phase 2 — Project & Task CRUD
+--------------------------------------------------------------------------------
+
+  1. Implement project endpoints (getProjects, getAllStudents, createProject, updateProject, deleteProject).
+  2. Build DashboardPage (student) and TeacherDashboardPage.
+  3. Implement task endpoints (getTasks, createTask, updateTask, deleteTask, reorderTasks).
+  4. Build ProjectPage with task list and TaskForm modal.
+  5. Implement dependency endpoints (getDependencies, createDependency, deleteDependency).
+
+
+Phase 3 — Gantt Chart
+--------------------------------------------------------------------------------
+
+  1. Build GanttChart skeleton: header date ruler, task rows, today line.
+  2. Add GanttBar with drag/resize via react-dnd.
+  3. Add GanttDependencyLines SVG arrows.
+  4. Implement useDependencies.js cascade engine (client-side topological sort).
+  5. Implement useCriticalPath.js (forward/backward pass).
+  6. Add GanttMilestone diamond markers.
+  7. Add TaskPanel drawer with full edit form and progress slider.
+
+
+Phase 4 — Resources, Reports, Profile
+--------------------------------------------------------------------------------
+
+  1. Implement resource endpoints and Resource View tab.
+  2. Build ProfilePage: avatar upload, screen name edit, change password.
+  3. Implement PDF generation (pdfUtils.js) and build ReportsPage.
+  4. Add forgotPassword / resetPassword flow.
+  5. QA pass: form validation, error handling, loading states, empty states.
+
+
+================================================================================
+  18. NOTES FOR THE CODING AGENT
+================================================================================
+
+
+18.1 React / Frontend Standards
+--------------------------------------------------------------------------------
+
+  * Functional components only — no class components.
+  * All async data fetching via React Query hooks (useQuery, useMutation). Never fetch() directly in a component.
+  * All API calls go through functions in src/api/ — these functions use client.js for auth header injection.
+  * All date arithmetic goes through dateUtils.js (date-fns wrappers). Never use raw new Date() arithmetic in components.
+  * Wrap GanttChart and each page component in an <ErrorBoundary>.
+  * Every data-dependent component shows <LoadingSpinner /> while fetching.
+  * Every list shows a friendly SVG empty-state illustration when no data exists.
+
+
+18.2 PHP Standards
+--------------------------------------------------------------------------------
+
+  * Every PHP file starts with: <?php  then immediately: require_once '../setup.php'; (adjust path depth).
+  * Use $receivedData for POST body access; $_GET for query parameters.
+  * Call log_info() at the start of each endpoint with json_encode of received data.
+  * Call send_response() for ALL responses — never echo or die() directly.
+  * Validate required fields exist before touching the database.
+  * For teacher/admin-only endpoints: check $GLOBALS["authenticatedRole"] and return send_response("Forbidden", 403) if role is student.
+
+
+18.3 Critical Gantt Constraints
+--------------------------------------------------------------------------------
+
+  * Handle projects up to 2 years without performance issues — virtualise rows if task count exceeds 100.
+  * Dependency arrows must re-render instantly when tasks are moved.
+  * Date calculations use calendar days by default (weekends counted). Working-days-only mode is out of scope for v1.
+  * Milestone diamonds must always render on top of task bars (highest z-index in the chart layer).
+  * Gantt bar drag must snap to whole-day grid positions (no sub-day precision in v1).
+
+
+18.4 Test Scenarios  (verify these before marking a phase complete)
+--------------------------------------------------------------------------------
+
+  * Cascade: create A -> B -> C chain. Move A end date forward 3 days. Confirm B and C shift by 3 days.
+  * Circular dependency: attempt to create A->B then B->A. Expect HTTP 400 from createDependency.php.
+  * Avatar upload: attempt file > 10 MB — expect client-side rejection before any fetch is made.
+  * Avatar MIME: rename a .exe to .jpg and attempt upload — expect server-side rejection via mime_content_type().
+  * JWT expiry: set jwtTtlMinutes=1, wait 61 seconds, make any API call — expect 401 and redirect to /login.
+  * Teacher access: log in as student, navigate to /teacher — expect redirect to /dashboard.
+  * Student isolation: log in as student, manually request getProjects.php?owner_id={other_student_id} — expect only own projects returned.
+  * PDF: generate report in Chrome and Firefox. Verify A4 landscape orientation and Gantt chart renders on final page.
+
+================================================================================
+  END OF SPECIFICATION — GanttManager v1.0
+  Simon Rundell, CodeMonkey Design Ltd. — March 2026
+  License: CC BY-NC-SA 4.0
+================================================================================

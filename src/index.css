@@ -1,0 +1,53 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=Space+Grotesk:wght@400;500;600&display=swap');
+
+:root {
+  --canvas: #f6f1ec;
+  --panel: #ffffff;
+  --panel-dark: #141312;
+  --text: #2c2420;
+  --text-light: #fef7f1;
+  --text-muted: #8a8177;
+  --border-soft: rgba(44, 36, 32, 0.1);
+  --accent: #f05f4f;
+  --shadow-soft: 0 18px 30px rgba(15, 23, 42, 0.08);
+  --display: 'Fraunces', 'Times New Roman', serif;
+  --sans: 'Space Grotesk', 'Helvetica Neue', Arial, sans-serif;
+
+  font: 16px/150% var(--sans);
+  color: var(--text);
+  background: var(--canvas);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: linear-gradient(135deg, #f6f1ec 0%, #fef7f1 45%, #f7e7de 100%);
+}
+
+#root {
+  min-height: 100vh;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--display);
+  font-weight: 600;
+}
+
+p {
+  margin: 0;
+}
+
+button {
+  font-family: var(--sans);
+}
+
+a {
+  color: inherit;
+}
