@@ -1,32 +1,58 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuthStore } from '../store/authStore'
-import { post } from '../api/client'
+import { getApiBase, post } from '../api/client'
+import toast from 'react-hot-toast'
 
 function ProfilePage() {
   const { user, loadProfile } = useAuthStore()
   const [screenName, setScreenName] = useState(user?.screen_name || '')
   const [passwords, setPasswords] = useState({ current: '', next: '' })
+  const [apiBase, setApiBase] = useState('')
+
+  useEffect(() => {
+    getApiBase().then(setApiBase).catch(() => setApiBase(''))
+  }, [])
 
   const onSave = async () => {
-    await post('/users/updateProfile.php', { screen_name: screenName })
-    await loadProfile()
+    try {
+      await post('/users/updateProfile.php', { screen_name: screenName })
+      await loadProfile()
+      toast.success('Profile updated')
+    } catch (error) {
+      toast.error(error.message || 'Profile update failed')
+    }
   }
 
   const onChangePassword = async () => {
-    await post('/users/changePassword.php', {
-      currentPassword: passwords.current,
-      newPassword: passwords.next,
-    })
-    setPasswords({ current: '', next: '' })
+    try {
+      await post('/users/changePassword.php', {
+        currentPassword: passwords.current,
+        newPassword: passwords.next,
+      })
+      setPasswords({ current: '', next: '' })
+      toast.success('Password updated')
+    } catch (error) {
+      toast.error(error.message || 'Password update failed')
+    }
   }
 
   const onUpload = async (event) => {
     const file = event.target.files[0]
-    if (!file) return
+    if (!file) {
+      toast.error('No file selected')
+      return
+    }
     const formData = new FormData()
     formData.append('avatar', file)
-    await post('/users/uploadAvatar.php', formData)
-    await loadProfile()
+    toast('Uploading avatar...')
+    try {
+      await post('/users/uploadAvatar.php', formData)
+      await loadProfile()
+      toast.success('Avatar updated')
+      event.target.value = ''
+    } catch (error) {
+      toast.error(error.message || 'Avatar upload failed')
+    }
   }
 
   return (
@@ -34,14 +60,26 @@ function ProfilePage() {
       <div className="panel-header">
         <p className="panel-title">Profile</p>
       </div>
+      <div className="avatar-preview">
+        {user?.avatar_path && apiBase ? (
+          <img src={`${apiBase}/${user.avatar_path}`} alt="User avatar" />
+        ) : (
+          <div className="avatar-fallback">
+            {(user?.screen_name || 'GM').slice(0, 2).toUpperCase()}
+          </div>
+        )}
+        <div>
+          <p className="panel-label">Avatar</p>
+          <p className="panel-value">
+            {user?.avatar_path ? 'Uploaded' : 'No avatar uploaded'}
+          </p>
+        </div>
+      </div>
       <div className="form-grid">
         <label>
           Screen name
           <input value={screenName} onChange={(e) => setScreenName(e.target.value)} />
         </label>
-        <button className="primary-button" type="button" onClick={onSave}>
-          Save profile
-        </button>
       </div>
       <div className="form-grid">
         <label>
@@ -69,6 +107,11 @@ function ProfilePage() {
           Avatar
           <input type="file" accept="image/png,image/jpeg,image/gif" onChange={onUpload} />
         </label>
+      </div>
+      <div className="profile-actions">
+        <button className="primary-button save-button" type="button" onClick={onSave}>
+          Save profile
+        </button>
       </div>
     </section>
   )

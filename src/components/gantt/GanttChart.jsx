@@ -1,6 +1,6 @@
-function GanttChart({ columns, tasks }) {
+function GanttChart({ columns, tasks, milestones, columnCount }) {
   return (
-    <div className="gantt-board">
+    <div className="gantt-board" style={{ '--gantt-columns': columnCount }}>
       <div className="gantt-header">
         <div className="gantt-header-left">
           <p className="gantt-title">Work Breakdown Structure</p>
@@ -15,6 +15,20 @@ function GanttChart({ columns, tasks }) {
         </div>
       </div>
       <div className="gantt-grid">
+        <div className="gantt-milestones">
+          {(milestones || []).map((milestone) => (
+            <div
+              key={milestone.id}
+              className="gantt-milestone"
+              style={{
+                gridColumn: `${milestone.gridStart || 1} / span 1`,
+              }}
+              title={`${milestone.title} (${milestone.target_date})`}
+            >
+              <span>{milestone.title}</span>
+            </div>
+          ))}
+        </div>
         {tasks.map((task) => (
           <div className="gantt-row" key={task.id}>
             <div className="gantt-task">
@@ -25,7 +39,12 @@ function GanttChart({ columns, tasks }) {
               </div>
             </div>
             <div className="gantt-track">
-              <div className="gantt-bar">
+              <div
+                className="gantt-bar"
+                style={{
+                  gridColumn: `${task.gridStart} / span ${task.gridSpan}`,
+                }}
+              >
                 <span
                   className="gantt-progress"
                   style={{ width: `${task.progress || 0}%` }}

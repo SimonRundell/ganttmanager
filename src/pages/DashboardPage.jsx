@@ -6,7 +6,7 @@ import toast from 'react-hot-toast'
 
 function DashboardPage() {
   const { data } = useQuery({ queryKey: ['projects'], queryFn: fetchProjects })
-  const { setActiveProject } = useProjectStore()
+  const { activeProject, setActiveProject } = useProjectStore()
   const queryClient = useQueryClient()
   const [form, setForm] = useState({
     title: '',
@@ -124,7 +124,7 @@ function DashboardPage() {
           <button
             key={project.id}
             type="button"
-            className="project-card"
+            className={`project-card${activeProject?.id === project.id ? ' is-active' : ''}`}
             onClick={() => setActiveProject(project)}
           >
             <h3>{project.title}</h3>

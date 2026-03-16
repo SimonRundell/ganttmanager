@@ -35,13 +35,37 @@ if (!$insert->execute()) {
     send_response('Unable to create user', 500);
 }
 
-$link = rtrim($config['appUrl'], '/') . '/verify-email?token=' . $token;
+$apiRoot = rtrim($config['apiURL'] ?? '', '/');
+if ($apiRoot !== '') {
+    $apiBase = $apiRoot . '/api';
+} else {
+    $apiBase = rtrim($config['api'] ?? '', '/');
+    if ($apiBase === '') {
+        $apiBase = rtrim($config['appUrl'] ?? '', '/') . '/api';
+    }
+}
+$link = $apiBase . '/auth/verifyEmail.php?token=' . $token;
+$appUrl = rtrim($config['appUrl'] ?? '', '/');
+$logoUrl = rtrim($config['logoUrl'] ?? '', '/');
 
 try {
     $mail = get_mailer($config);
     $mail->addAddress($email, $screenName);
     $mail->Subject = 'Verify your GanttManager account';
-    $mail->Body = "Welcome to GanttManager. Verify your email using this link: $link";
+    $templatePath = __DIR__ . '/../templates/verify-email.html';
+    if (file_exists($templatePath)) {
+        $template = file_get_contents($templatePath);
+        $html = str_replace(
+            ['{{verify_link}}', '{{screen_name}}', '{{app_url}}', '{{logo_url}}'],
+            [$link, $screenName, $appUrl, $logoUrl],
+            $template
+        );
+        $mail->isHTML(true);
+        $mail->Body = $html;
+        $mail->AltBody = "Verify your email: $link";
+    } else {
+        $mail->Body = "Welcome to GanttManager. Verify your email using this link: $link";
+    }
     $mail->send();
 } catch (Exception $e) {
     log_info('Mailer error: ' . $e->getMessage());

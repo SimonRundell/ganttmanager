@@ -1,6 +1,6 @@
 let cachedApiBase = null
 
-async function getApiBase() {
+export async function getApiBase() {
   if (cachedApiBase) {
     return cachedApiBase
   }

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Verify your email</title>
+  </head>
+  <body style="margin:0;background:#f6f1ec;font-family:Arial,Helvetica,sans-serif;color:#2c2420;">
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="padding:32px 16px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:560px;background:#ffffff;border-radius:18px;box-shadow:0 18px 30px rgba(15,23,42,0.12);overflow:hidden;">
+            <tr>
+              <td style="padding:28px 28px 16px;">
+                <div style="display:flex;align-items:center;gap:12px;">
+                  <img src="{{logo_url}}" alt="GanttManager" width="36" height="36" style="border-radius:10px;display:block;" />
+                  <div>
+                    <p style="margin:0;font-size:18px;font-weight:bold;">GanttManager</p>
+                    <p style="margin:4px 0 0;font-size:12px;color:#8a8177;letter-spacing:1px;text-transform:uppercase;">Student Planning Suite</p>
+                  </div>
+                </div>
+                <h1 style="margin:24px 0 10px;font-size:22px;">Verify your email</h1>
+                <p style="margin:0 0 16px;font-size:14px;color:#6b635b;">Hi {{screen_name}}, thanks for joining GanttManager. Click the button below to verify your email and activate your account.</p>
+                <a href="{{verify_link}}" style="display:inline-block;margin:12px 0 20px;padding:12px 20px;background:#f05f4f;color:#1b1814;text-decoration:none;border-radius:12px;font-weight:bold;">Verify email address</a>
+                <p style="margin:0 0 12px;font-size:12px;color:#8a8177;">If the button does not work, copy and paste this link into your browser:</p>
+                <p style="margin:0 0 18px;font-size:12px;color:#2c2420;word-break:break-all;">{{verify_link}}</p>
+                <p style="margin:0;font-size:12px;color:#8a8177;">Need help? Visit {{app_url}}</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:14px 28px 24px;background:#fff6ef;font-size:11px;color:#8a8177;">
+                This verification link expires in 24 hours.
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
